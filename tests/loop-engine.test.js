@@ -1,0 +1,30 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {loopOffset, pickLoop, peaks, refineLoop} = require('../app/src/main/assets/loop-engine.js');
+const loops = [{id:'r',role:'rest'},{id:'m',role:'rise'},{id:'e',role:'effort'}];
+function sine(sr, seconds, hz) { const d=new Float32Array(Math.round(sr*seconds)); for(let i=0;i<d.length;i++) d[i]=Math.sin(2*Math.PI*hz*i/sr+0.3); return d; }
+test('moteur: position dans la boucle conservée', () => assert.equal(loopOffset(10,14,11.5),11.5));
+test('moteur: position repliée après plusieurs tours', () => assert.ok(Math.abs(loopOffset(10,14,23)-11)<1e-9));
+test('moteur: position avant le début repliée dans la boucle', () => assert.equal(loopOffset(10,14,9),13));
+test('moteur: boucle vide ou position invalide → début', () => {assert.equal(loopOffset(5,5,7),5);assert.equal(loopOffset(2,4,NaN),2)});
+test('séance: effort joue la boucle effort', () => assert.equal(pickLoop('effort',30,10,loops).id,'e'));
+test('séance: repos joue la boucle repos', () => assert.equal(pickLoop('rest',60,10,loops).id,'r'));
+test('séance: fin du repos joue la Montée', () => assert.equal(pickLoop('rest',10,10,loops).id,'m'));
+test('séance: Montée désactivée à 0 s', () => assert.equal(pickLoop('rest',1,0,loops).id,'r'));
+test('séance: sans Montée, le repos continue', () => assert.equal(pickLoop('rest',3,10,[loops[0]]).id,'r'));
+test('séance: rôle absent → silence, pause → rien', () => {assert.equal(pickLoop('effort',5,0,[loops[0]]),null);assert.equal(pickLoop('pause',5,0,loops),null)});
+test('onde: crêtes par colonne', () => assert.deepEqual(peaks(Float32Array.from([0,.5,-1,.2]),2),[.5,1]));
+test('raccord: début calé sur un passage à zéro montant', () => {
+ const sr=8000,d=sine(sr,3,100),r=refineLoop(d,sr,1.0013,2.0),i=Math.round(r.start*sr);
+ assert.ok(Math.abs(r.start-1.0013)<=0.01); assert.ok(d[i-1]<0.05 && Math.abs(d[i])<0.1 && d[i+1]>d[i-1]);
+});
+test('raccord: fin ajustée sur une période entière (raccord sans saut)', () => {
+ const sr=8000,d=sine(sr,3,100),r=refineLoop(d,sr,1.0,2.0037);
+ assert.ok(r.matched); const periods=(r.end-r.start)*100; assert.ok(Math.abs(periods-Math.round(periods))<0.02,String(periods));
+});
+test('raccord: proposition limitée à ±40 ms autour du choix manuel', () => {
+ const sr=8000,d=sine(sr,3,100),r=refineLoop(d,sr,0.5,1.7); assert.ok(Math.abs(r.end-1.7)<=0.04);
+});
+test('raccord: silence → points manuels conservés', () => {
+ const r=refineLoop(new Float32Array(8000*3),8000,1.234,2.5); assert.equal(r.start,1.234); assert.equal(r.end,2.5); assert.equal(r.matched,false);
+});
