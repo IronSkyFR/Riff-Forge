@@ -33,6 +33,12 @@ jobs:
           gradle-version: '8.10.2'
       - name: Compile debug APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Publish WebView QA assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: riff-forge-heritage-242-web-assets
+          path: app/src/main/assets/
+          if-no-files-found: error
       - name: Publish APK
         uses: actions/upload-artifact@v4
         with:
