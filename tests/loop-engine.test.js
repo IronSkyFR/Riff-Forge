@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {loopOffset, pickLoop, peaks, refineLoop} = require('../app/src/main/assets/loop-engine.js');
+const {loopOffset, pickLoop, rpmFor, peaks, refineLoop} = require('../app/src/main/assets/loop-engine.js');
+test('compte-tours: ralenti à l’arrêt, zone rouge à l’effort', () => {assert.equal(rpmFor('idle',0,10),0.9);assert.equal(rpmFor('pause',5,10),0.9);assert.ok(rpmFor('effort',5,10)>=8)});
+test('compte-tours: la Montée fait grimper le régime', () => {const a=rpmFor('rest',30,10),b=rpmFor('rest',10,10),c=rpmFor('rest',5,10),d=rpmFor('rest',0,10);assert.ok(a<b&&b<c&&c<d);assert.equal(d,8)});
 const loops = [{id:'r',role:'rest'},{id:'m',role:'rise'},{id:'e',role:'effort'}];
 function sine(sr, seconds, hz) { const d=new Float32Array(Math.round(sr*seconds)); for(let i=0;i<d.length;i++) d[i]=Math.sin(2*Math.PI*hz*i/sr+0.3); return d; }
 test('moteur: position dans la boucle conservée', () => assert.equal(loopOffset(10,14,11.5),11.5));

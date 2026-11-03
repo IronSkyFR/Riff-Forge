@@ -19,6 +19,13 @@
     if (riseSeconds > 0 && remaining <= riseSeconds) return first('rise') || first('rest');
     return first('rest');
   }
+  // Tachometer reading (× 1 000 tr/min) for the session gauge: idle, calm rest, climbing « Montée », red-zone effort.
+  function rpmFor(stage, remaining, riseSeconds) {
+    if (stage === 'effort') return 9.2;
+    if (stage !== 'rest') return 0.9;
+    if (riseSeconds > 0 && remaining <= riseSeconds) return 3 + 5 * (1 - Math.max(0, remaining) / riseSeconds);
+    return 2.2;
+  }
   function peaks(data, columns) {
     var out = [], step = Math.max(1, Math.floor(data.length / 1300));
     for (var n = 0; n < columns; n++) {
@@ -60,5 +67,5 @@
     // Microsecond precision: rounding to the millisecond would move the seam by ~44 samples at 44.1 kHz.
     return { start: Math.round(s / sampleRate * 1e6) / 1e6, end: Math.round(e / sampleRate * 1e6) / 1e6, matched: best !== null };
   }
-  return { loopOffset: loopOffset, pickLoop: pickLoop, peaks: peaks, refineLoop: refineLoop };
+  return { loopOffset: loopOffset, pickLoop: pickLoop, rpmFor: rpmFor, peaks: peaks, refineLoop: refineLoop };
 });

@@ -9,11 +9,12 @@
 - **Écran allumé pendant la séance** : pont JS `RiffAndroid.keepScreenOn` → `FLAG_KEEP_SCREEN_ON` (Wake Lock API dans un navigateur).
 - **Repères D/F sur la forme d'onde**, zone de boucle surlignée, tête de lecture ; toucher l'onde pour se positionner. Points au millième.
 - **Bouton « ＋ Nouvelle »** : un nouvel enregistrement ne remplace plus la boucle précédente.
+- **DA Riff Forge 2.3.1** (inspiration FPS métal 2016) : brun brûlé et cuivre, titres condensés, étiquettes mono, coins chanfreinés, navigation basse à icônes, compte-tours de séance (régime selon Repos / Montée / Effort).
 - **Thème Android sombre** (plus de flash blanc) et **Retour** qui ramène à l'Atelier avant de quitter.
 
 ## Statut vérifié le 3 novembre 2026
 
-- Tests Node.js : **30/30 OK** (persistance des boucles manuelles + moteur de boucle).
+- Tests Node.js : **32/32 OK** (persistance des boucles manuelles + moteur de boucle).
 - Interface vérifiée dans un navigateur (WAV de synthèse) : affinage, Repos → Montée → Effort, reprise après pause, fin de séance, Retour.
 - Compilation Android : **non exécutée** (SDK/Gradle absents du runtime ; accès réseau impossible).
 - APK : **pas encore compilée**. Le workflow GitHub Actions ci-joint est prévu pour produire un APK de debug.
