@@ -12,9 +12,18 @@
 - **DA Riff Forge 2.3.1** (inspiration FPS métal 2016) : brun brûlé et cuivre, titres condensés, étiquettes mono, coins chanfreinés, navigation basse à icônes, compte-tours de séance (régime selon Repos / Montée / Effort).
 - **Thème Android sombre** (plus de flash blanc) et **Retour** qui ramène à l'Atelier avant de quitter.
 
+## Auto-Forge et lecteur (inspirés de la musique adaptative des jeux vidéo)
+
+- **Analyse automatique hors ligne** (`auto-forge.js`) : tempo (autocorrélation + affinage au centième de BPM), grille des temps et des mesures, intensité de chaque mesure (énergie, basses, aigus, densité de coups). Propose les 3 meilleures boucles Repos / Montée / Effort A-B-C en mesures entières, raccords notés puis affinés. Ce ne sont que des propositions : « ＋ » pour garder, « Éditer » pour retoucher, « Garder la meilleure config ★ » pour tout prendre. Tes boucles manuelles restent prioritaires.
+- **Remix dynamique en séance** : repos étouffé (filtre passe-bas), Montée dont le filtre s'ouvre, effort plein et compressé ; changements calés sur le temps ou la mesure (« horizontal re-sequencing »), fondu d'un temps au retour au repos, impact synthétique à l'entrée de l'effort, alternance des efforts A/B toutes les 8 mesures.
+- **Fin de séance** : le morceau se termine tout seul (boucle relâchée jusqu'à la vraie fin), ou fondu sur 4 mesures, ou coupure nette.
+- **Bibliothèque multi-morceaux** : sélection multiple depuis n'importe quel dossier ou Drive (`EXTRA_ALLOW_MULTIPLE` + `ClipData` côté Android) ; **mini-lecteur** permanent (⏮ ▶ ⏭, position, volume général, enchaînement automatique).
+- **Flammes** sous le compte-tours pendant le riff d'effort.
+- Limite : pas de séparation réelle des instruments (Demucs & co. trop lourds hors ligne dans un WebView) ; les filtres imitent les couches.
+
 ## Statut vérifié le 3 novembre 2026
 
-- Tests Node.js : **32/32 OK** (persistance des boucles manuelles + moteur de boucle).
+- Tests Node.js : **48/48 OK** (persistance, moteur de boucle, Auto-Forge) (persistance des boucles manuelles + moteur de boucle).
 - Interface vérifiée dans un navigateur (WAV de synthèse) : affinage, Repos → Montée → Effort, reprise après pause, fin de séance, Retour.
 - Compilation Android : **non exécutée** (SDK/Gradle absents du runtime ; accès réseau impossible).
 - APK : **pas encore compilée**. Le workflow GitHub Actions ci-joint est prévu pour produire un APK de debug.

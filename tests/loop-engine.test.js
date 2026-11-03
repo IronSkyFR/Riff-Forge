@@ -30,3 +30,10 @@ test('raccord: proposition limitée à ±40 ms autour du choix manuel', () => {
 test('raccord: silence → points manuels conservés', () => {
  const r=refineLoop(new Float32Array(8000*3),8000,1.234,2.5); assert.equal(r.start,1.234); assert.equal(r.end,2.5); assert.equal(r.matched,false);
 });
+const {waitToGrid, remixFor} = require('../app/src/main/assets/loop-engine.js');
+test('A/B: deux boucles effort alternent', () => {const L=[...loops,{id:'e2',role:'effort'}];assert.equal(pickLoop('effort',5,0,L,0).id,'e');assert.equal(pickLoop('effort',5,0,L,1).id,'e2');assert.equal(pickLoop('effort',5,0,L,2).id,'e')});
+test('calage: attente jusqu’à la prochaine mesure', () => assert.ok(Math.abs(waitToGrid(10.5,{end:20},0.25,2)-1.75)<1e-9));
+test('calage: déjà sur la grille → pas d’attente', () => assert.equal(waitToGrid(4.25,{end:20},0.25,2),0));
+test('calage: jamais au-delà de la fin de boucle', () => assert.ok(Math.abs(waitToGrid(9.5,{end:10},0,4)-0.5)<1e-9));
+test('calage: sans grille → immédiat', () => assert.equal(waitToGrid(3,{end:9},0,0),0));
+test('remix: repos étouffé, effort plein, montée qui s’ouvre', () => {const r=remixFor('rest'),e=remixFor('effort'),a=remixFor('rise',0),b=remixFor('rise',.5),c=remixFor('rise',1);assert.ok(r.cutoff<e.cutoff&&r.gain<e.gain&&e.drive);assert.ok(a.cutoff<b.cutoff&&b.cutoff<c.cutoff&&c.cutoff>=17000);assert.equal(a.cutoff,r.cutoff)});

@@ -81,6 +81,8 @@ public final class MainActivity extends Activity {
                 picker = new ValueCallbackHolder(filePathCallback);
                 try {
                     Intent intent = params.createIntent();
+                    // <input multiple>: let the user pick several tracks at once from any provider (folders, Drive…).
+                    if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                     startActivityForResult(intent, AUDIO_PICKER_REQUEST);
                     return true;
                 } catch (Exception ex) {
@@ -97,7 +99,13 @@ public final class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == AUDIO_PICKER_REQUEST && picker != null) {
-            picker.finish(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+            // parseResult() only reads getData(): a multiple selection arrives in ClipData.
+            Uri[] uris = null;
+            if (resultCode == RESULT_OK && data != null && data.getClipData() != null) {
+                uris = new Uri[data.getClipData().getItemCount()];
+                for (int i = 0; i < uris.length; i++) uris[i] = data.getClipData().getItemAt(i).getUri();
+            } else uris = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+            picker.finish(uris);
             picker = null;
         }
     }

@@ -12,9 +12,10 @@
     return start + (((pos - start) % len) + len) % len;
   }
   // Rest plays the « Montée » loop during its last riseSeconds; falls back to the rest loop if none exists.
-  function pickLoop(stage, remaining, riseSeconds, loops) {
+  // With several effort loops, `variant` alternates them (A/B cycle against fatigue, as game combat music does).
+  function pickLoop(stage, remaining, riseSeconds, loops, variant) {
     var first = function (role) { return (loops || []).find(function (l) { return l.role === role; }) || null; };
-    if (stage === 'effort') return first('effort');
+    if (stage === 'effort') { var efforts = (loops || []).filter(function (l) { return l.role === 'effort'; }); return efforts.length ? efforts[(variant || 0) % efforts.length] : null; }
     if (stage !== 'rest') return null;
     if (riseSeconds > 0 && remaining <= riseSeconds) return first('rise') || first('rest');
     return first('rest');
@@ -25,6 +26,19 @@
     if (stage !== 'rest') return 0.9;
     if (riseSeconds > 0 && remaining <= riseSeconds) return 3 + 5 * (1 - Math.max(0, remaining) / riseSeconds);
     return 2.2;
+  }
+  // Seconds to wait before the next musical boundary (beat or bar of the grid), never past the loop's own end.
+  function waitToGrid(pos, loop, origin, unit) {
+    if (!(unit > 0) || !Number.isFinite(pos)) return 0;
+    var k = Math.ceil((pos - origin) / unit - 1e-6), next = origin + k * unit;
+    return Math.max(0, Math.min(next, loop ? loop.end : next) - pos);
+  }
+  // Live remix presets imitating vertical layering: muffled rest, opening filter during the « Montée », full band for effort.
+  function remixFor(role, progress) {
+    var p = Math.max(0, Math.min(1, progress || 0));
+    if (role === 'rest') return { cutoff: 1100, gain: 0.78, drive: false };
+    if (role === 'rise') return { cutoff: Math.round(1100 * Math.pow(18000 / 1100, p)), gain: 0.78 + 0.22 * p, drive: false };
+    return { cutoff: 20000, gain: 1, drive: role === 'effort' };
   }
   function peaks(data, columns) {
     var out = [], step = Math.max(1, Math.floor(data.length / 1300));
@@ -67,5 +81,5 @@
     // Microsecond precision: rounding to the millisecond would move the seam by ~44 samples at 44.1 kHz.
     return { start: Math.round(s / sampleRate * 1e6) / 1e6, end: Math.round(e / sampleRate * 1e6) / 1e6, matched: best !== null };
   }
-  return { loopOffset: loopOffset, pickLoop: pickLoop, rpmFor: rpmFor, peaks: peaks, refineLoop: refineLoop };
+  return { loopOffset: loopOffset, pickLoop: pickLoop, waitToGrid: waitToGrid, remixFor: remixFor, rpmFor: rpmFor, peaks: peaks, refineLoop: refineLoop };
 });
