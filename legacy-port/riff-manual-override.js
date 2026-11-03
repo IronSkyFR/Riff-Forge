@@ -21,7 +21,7 @@
   function finite(x) { return typeof x === 'number' && Number.isFinite(x); }
   function validTrack(trackId) {
     var id = clean(trackId, 512);
-    if (!id) error('Identifiant de morceau manquant.');
+    if (!id || ['__proto__', 'prototype', 'constructor'].includes(id)) error('Identifiant de morceau invalide.');
     return id;
   }
   function validate(loop, duration) {
@@ -37,6 +37,7 @@
     if (!data || data.schema !== SCHEMA || !data.tracks ||
         typeof data.tracks !== 'object' || Array.isArray(data.tracks)) error('Format de sauvegarde incompatible.');
     Object.keys(data.tracks).forEach(function (track) {
+      validTrack(track);
       var t = data.tracks[track];
       if (!t || !Array.isArray(t.loops)) error('Données de morceau invalides.');
       t.loops.forEach(function (l) {
