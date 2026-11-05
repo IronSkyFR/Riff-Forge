@@ -38,3 +38,9 @@ test('Héritage: navigation système Android prise en compte, pas de réseau',()
  assert.match(activity,/WindowInsets\.Type\.ime\(\)/);
  assert.doesNotMatch(manifest,/android\.permission\.INTERNET/);
 });
+test('Héritage: la reprise après pause ne relance pas la séance depuis le début',()=>{
+ // An assignment inside a condition (stage='idle') made « Lancer » restart round 1 instead of resuming.
+ assert.doesNotMatch(app,/(?:if\(|\|\||&&)\s*workout\.stage\s*=(?!=)/);
+ assert.match(app,/if\(workout\.stage==='idle'\|\|workout\.stage==='done'\|\|workout\.stage==='outro'\)/);
+ assert.match(app,/else if\(workout\.stage==='pause'\)\{workout\.stage=workout\.pausedStage/);
+});
