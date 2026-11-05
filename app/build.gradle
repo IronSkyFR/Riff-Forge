@@ -5,11 +5,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'fr.ironsky.riffforge.lab'
+        applicationId 'fr.ironsky.riffforge.heritage'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '2.4.1-lab'
+        versionCode 1
+        versionName '2.4.2-heritage'
     }
 
     buildTypes { release { minifyEnabled false } }

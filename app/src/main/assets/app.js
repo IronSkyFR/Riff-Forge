@@ -2,6 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id), E = RiffLoopEngine, AF = RiffAutoForge, GRID_KEY = 'riffforge.v2.analysis';
 const database = RiffManualLoops.makeStore(window.localStorage);
+const Choice = RiffSessionChoice, SILENT_KEY = 'riffforge.v2.heritage.chronoSeul';
 let track = null, objectUrl = null, duration = 0, editingId = null, loopPreview = null, previewing = false;
 let volume = (()=>{try{const v=Number(localStorage.getItem('riffforge.v2.volume'));return Number.isFinite(v)&&localStorage.getItem('riffforge.v2.volume')!==null?v:1}catch(_){return 1}})();
 let ac = null, buffer = null, mono = null, wavePeaks = null, voice = null, wakeLock = null, fx = null, analysis = null, suggestionPreview = null;
@@ -63,12 +64,16 @@ $('mark-end').addEventListener('click',()=>{if(requireTrack()){$('loop-end').val
 function setEditing(id){editingId=id;$('edit-state').textContent=id?'· modification':'· nouvelle'}
 $('new-loop').addEventListener('click',()=>{setEditing(null);$('loop-name').value='Nouvelle boucle';say('Nouvelle boucle : l’enregistrement ne remplacera pas les précédentes.','ok')});
 function fields(){return {id:editingId,name:$('loop-name').value,start:Number($('loop-start').value),end:Number($('loop-end').value),role:$('loop-role').value}}
-$('save-loop').addEventListener('click',()=>{if(!requireTrack())return;try{let x=fields();if($('loop-start').value===''||$('loop-end').value==='')throw Error('Indique les points de début et de fin.');const item=database.save(track,x,duration);setEditing(item.id);say('Boucle enregistrée sur ce téléphone. L’analyse musicale ne peut pas l’annuler.','ok');renderList()}catch(e){say('Enregistrement impossible : '+e.message,'error')}});
+$('save-loop').addEventListener('click',()=>{if(!requireTrack())return;try{let x=fields();if($('loop-start').value===''||$('loop-end').value==='')throw Error('Indique les points de début et de fin.');const item=database.save(track,x,duration);
+ const prefs=Choice.read(localStorage,track),slot=item.role==='effort'?'effortA':item.role;
+ // The first user-made loop becomes the selected phase only if no explicit selection existed.
+ if(!prefs[slot]){prefs[slot]=item.id;try{Choice.write(localStorage,track,prefs)}catch(_){/* loop itself is already saved */}}
+ setEditing(item.id);say('Boucle enregistrée ! Choisis son rôle dans l’onglet Séance. Aucune analyse ne peut la refuser.','ok');renderList()}catch(e){say('Enregistrement impossible : '+e.message,'error')}});
 $('preview-loop').addEventListener('click',()=>{if(!requireTrack())return;if(previewing){stopMusic();return}if(workout.stage==='rest'||workout.stage==='effort'){say('Mets la séance en pause pour tester une boucle.','error');return}try{const l=fields();RiffManualLoops.validateLoop(l,duration);$('player').pause();setRemix(null);playMusic(l,l.start);setPreviewing(true);say(buffer?'Lecture en boucle sans coupure du raccord manuel.':'Lecture en boucle du raccord manuel (mode simple).','ok')}catch(e){say(e.message,'error')}});
 // Optional: proposes cleaner seam points around the user's choice. Nothing is saved or forced.
 $('refine-loop').addEventListener('click',()=>{if(!requireTrack())return;if(!buffer){say('Affinage indisponible : l’audio n’est pas décodé sur cet appareil. Tes points restent valables.','error');return}try{const l=fields();RiffManualLoops.validateLoop(l,duration);const r=E.refineLoop(monoData(),buffer.sampleRate,l.start,l.end),ms=(a,b)=>((b-a)*1000>=0?'+':'')+((b-a)*1000).toFixed(1)+' ms';$('loop-start').value=r.start;$('loop-end').value=r.end;drawWave();if(previewing)playMusic({start:r.start,end:r.end},r.start);say((r.matched?'Raccord affiné':'Début calé, fin gardée telle quelle')+' : début '+ms(l.start,r.start)+', fin '+ms(l.end,r.end)+'. Proposition non enregistrée : écoute, retouche à la main ou enregistre.','ok')}catch(e){say(e.message,'error')}});
 function frame(){let p=$('player');if(!voice&&!p.paused&&loopPreview&&p.currentTime>=loopPreview.end-0.035)p.currentTime=loopPreview.start;if(voice){$('play-now').textContent=fmt(loopPosition());drawWave();updateMini()}moveNeedle();drawFlames();requestAnimationFrame(frame)}requestAnimationFrame(frame);
-function renderList(){renderLibrary();const el=$('loop-list');if(!track){el.textContent='Charge un morceau dans l’atelier pour voir ses boucles.';return}let loops;try{loops=database.list(track)}catch(e){say(e.message,'error');return}if(!loops.length){el.textContent='Aucune boucle pour ce morceau. Tes montages apparaîtront ici.';return}el.textContent='';loops.forEach(l=>{let div=document.createElement('div');div.className='segment';let info=document.createElement('div'),name=document.createElement('strong'),details=document.createElement('small');name.textContent=l.name;details.textContent={rest:'RÉCUPÉRATION',rise:'MONTÉE',effort:'EFFORT'}[l.role]+' · '+fmt(l.start)+' → '+fmt(l.end);info.append(name,document.createElement('br'),details);let btns=document.createElement('div');btns.className='row';const edit=document.createElement('button');edit.textContent='Éditer';edit.onclick=()=>{setEditing(l.id);$('loop-name').value=l.name;$('loop-start').value=l.start;$('loop-end').value=l.end;$('loop-role').value=l.role;activePage('edit');drawWave()};const del=document.createElement('button');del.textContent='×';del.setAttribute('aria-label','Supprimer '+l.name);del.onclick=()=>{if(confirm('Supprimer la boucle « '+l.name+' » ?')){try{database.remove(track,l.id);if(editingId===l.id)setEditing(null);renderList();say('Boucle supprimée.','ok')}catch(e){say(e.message,'error')}}};btns.append(edit,del);div.append(info,btns);el.append(div)})}
+function renderList(){renderLibrary();renderSessionChoices();const el=$('loop-list');if(!track){el.textContent='Charge un morceau dans l’atelier pour voir ses boucles.';return}let loops;try{loops=database.list(track)}catch(e){say(e.message,'error');return}if(!loops.length){el.textContent='Aucune boucle pour ce morceau. Tes montages apparaîtront ici.';return}el.textContent='';loops.forEach(l=>{let div=document.createElement('div');div.className='segment';let info=document.createElement('div'),name=document.createElement('strong'),details=document.createElement('small');name.textContent=l.name;details.textContent={rest:'RÉCUPÉRATION',rise:'MONTÉE',effort:'EFFORT'}[l.role]+' · '+fmt(l.start)+' → '+fmt(l.end);info.append(name,document.createElement('br'),details);let btns=document.createElement('div');btns.className='row';const edit=document.createElement('button');edit.textContent='Éditer';edit.onclick=()=>{setEditing(l.id);$('loop-name').value=l.name;$('loop-start').value=l.start;$('loop-end').value=l.end;$('loop-role').value=l.role;activePage('edit');drawWave()};const del=document.createElement('button');del.textContent='×';del.setAttribute('aria-label','Supprimer '+l.name);del.onclick=()=>{if(confirm('Supprimer la boucle « '+l.name+' » ?')){try{database.remove(track,l.id);if(editingId===l.id)setEditing(null);renderList();say('Boucle supprimée.','ok')}catch(e){say(e.message,'error')}}};btns.append(edit,del);div.append(info,btns);el.append(div)})}
 $('export-data').addEventListener('click',()=>{try{const blob=new Blob([database.exportJson()],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='RiffForge-boucles-manuelles.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),20000);say('Sauvegarde JSON prête.','ok')}catch(e){say(e.message,'error')}});
 $('import-data').addEventListener('change',async(e)=>{const file=e.target.files?.[0];if(!file)return;try{database.importJson(await file.text());renderList();say('Repères restaurés sans effacer les autres morceaux.','ok')}catch(err){say(err.message,'error')}e.target.value=''});
 function settings(){return {rest:Math.max(1,Number($('rest-seconds').value)||120),effort:Math.max(1,Number($('effort-seconds').value)||40),count:Math.max(1,Math.min(50,Number($('round-count').value)||4)),rise:Math.max(0,Number($('rise-seconds').value)||0)}}
@@ -88,7 +93,52 @@ function updateClock(){if(workout.stage==='idle')$('phase').textContent='PRÊT �
  $('g-sub').textContent={idle:'Place-toi, puis lance la séance.',rest:role==='rise'?'Ça monte. Prépare-toi à pousser.':'Récupère. Respire.',effort:'Déchaîne le riff !',pause:'En pause. La boucle reprendra au même endroit.',done:'Chaque série compte. Bravo.',outro:'Le morceau se termine tout seul. ↺ pour couper.'}[workout.stage]||''}
 let gridFor=null,gridCache=null;
 function loadGrid(){if(analysis)return analysis;if(gridFor!==track){gridFor=track;try{gridCache=JSON.parse(localStorage.getItem(GRID_KEY)||'{}')[track]||null}catch(_){gridCache=null}}return gridCache}
-function loadLoops(){if(!track)return [];try{return database.list(track)}catch(e){say(e.message,'error');return []}}
+function renderSessionChoices(){
+ const opts=$('choice-options'),empty=$('choice-empty');
+ if(!track){opts.classList.add('hidden');empty.classList.remove('hidden');return}
+ opts.classList.remove('hidden');empty.classList.add('hidden');
+ let loops=[];try{loops=database.list(track)}catch(e){say('Lecture des boucles impossible : '+e.message,'error')}
+ const prefs=Choice.read(localStorage,track);
+ const slots=[['rest','rest','Première boucle de repos'],['rise','rise','Première boucle de montée'],
+             ['effortA','effort','Première boucle d’effort'],['effortB','effort','Autre boucle d’effort']];
+ slots.forEach(([slot,role,defaultText])=>{
+   const select=$('choice-'+slot);
+   select.textContent='';
+   const first=document.createElement('option');first.value='';first.textContent=defaultText;select.append(first);
+   loops.filter(l=>l.role===role).forEach(l=>{
+     const o=document.createElement('option');o.value=l.id;
+     o.textContent=l.name+' · '+fmt(l.start)+'–'+fmt(l.end);select.append(o);
+   });
+   select.value=prefs[slot]||'';
+   if(select.selectedIndex<0)select.value='';
+ });
+ $('choice-useB').checked=prefs.useB;
+ $('choice-b-wrap').classList.toggle('hidden',!prefs.useB);
+}
+function saveSessionChoices(){
+ if(!track)return say('Charge un morceau avant de choisir ses boucles.','error');
+ try{
+   const p={rest:$('choice-rest').value,rise:$('choice-rise').value,
+     effortA:$('choice-effortA').value,effortB:$('choice-effortB').value,
+     useB:$('choice-useB').checked};
+   Choice.write(localStorage,track,p);
+   $('choice-b-wrap').classList.toggle('hidden',!p.useB);
+   say('Réglages musicaux enregistrés pour ce morceau.','ok');
+ }catch(e){say('Enregistrement des préférences impossible : '+e.message,'error')}
+}
+['rest','rise','effortA','effortB'].forEach(slot=>
+  $('choice-'+slot).addEventListener('change',saveSessionChoices));
+$('choice-useB').addEventListener('change',saveSessionChoices);
+$('session-silent').addEventListener('change',()=>{
+ try{localStorage.setItem(SILENT_KEY,String($('session-silent').checked));
+   say($('session-silent').checked?'Mode Chrono seul activé pour la prochaine séance.':'Musique réactivée pour la prochaine séance.','ok');
+ }catch(e){say('Réglage non enregistré : '+e.message,'error')}
+});
+function loadLoops(){
+ if($('session-silent').checked || !track)return [];
+ try{return Choice.choose(database.list(track),Choice.read(localStorage,track))}
+ catch(e){say('Choix des boucles impossible : '+e.message,'error');return []}
+}
 // Called every tick: switches loop only when the wanted one changes (phase change or start of the « Montée »).
 // On resume after a pause, the same loop continues from where it stopped instead of restarting.
 // Transitions land on the music's grid like game « horizontal re-sequencing »: effort hits on the next beat with an impact,
@@ -101,7 +151,7 @@ function applyMusic(resume){const choice=E.pickLoop(workout.stage,workout.remain
 function riseProgress(){return workout.rise>0?1-Math.max(0,workout.remaining)/workout.rise:0}
 function abSwitch(){if(workout.stage!=='effort'||!voice||workout.musicRole!=='effort'||workout.loops.filter(l=>l.role==='effort').length<2)return;const len=voice.loop.end-voice.loop.start,min=Math.max(len,workout.grid?8*workout.grid.bar:16);if(ac.currentTime-voice.startedAt>=min-.6)workout.variant=(workout.variant||0)+1}
 function tick(){if(workout.stage!=='rest'&&workout.stage!=='effort')return;let now=performance.now(),elapsed=Math.max(0,(now-workout.lastTick)/1000);workout.lastTick=now;workout.remaining=Math.max(0,workout.remaining-elapsed);if(workout.remaining<=0){let s=settings();if(workout.stage==='rest'){workout.stage='effort';workout.remaining=s.effort}else if(workout.round<workout.count){workout.round++;workout.stage='rest';workout.remaining=s.rest}else{clearInterval(workout.timer);workout.timer=null;finishSession()}}if(workout.stage==='rest'||workout.stage==='effort'){abSwitch();applyMusic(false);if(workout.musicRole==='rise'&&$('remix-on').checked&&voice&&ac.currentTime>=voice.startedAt)setRemix('rise',riseProgress())}updateClock()}
-$('work-start').addEventListener('click',()=>{if(workout.timer)return;let s=settings();stopMusic();audioCtx();if(workout.stage==='idle'||workout.stage==='done'||workout.stage==='outro'){workout={timer:null,stage:'rest',round:1,remaining:s.rest,count:s.count,lastTick:0,loops:loadLoops(),rise:s.rise,musicId:null,variant:0,grid:loadGrid()};applyMusic(false)}else if(workout.stage==='pause'){workout.stage=workout.pausedStage||'rest';workout.loops=loadLoops();workout.rise=s.rise;workout.grid=loadGrid();applyMusic(true)}workout.lastTick=performance.now();workout.timer=setInterval(tick,100);keepAwake(true);updateClock()});
+$('work-start').addEventListener('click',()=>{if(workout.timer)return;let s=settings();stopMusic();$('player').pause();if(track && !$('session-silent').checked)audioCtx();if(workout.stage==='idle'||workout.stage==='done'||workout.stage==='outro'){workout={timer:null,stage:'rest',round:1,remaining:s.rest,count:s.count,lastTick:0,loops:loadLoops(),rise:s.rise,musicId:null,variant:0,grid:loadGrid()};applyMusic(false)}else if(workout.stage==='pause'){workout.stage=workout.pausedStage||'rest';workout.loops=loadLoops();workout.rise=s.rise;workout.grid=loadGrid();applyMusic(true)}workout.lastTick=performance.now();workout.timer=setInterval(tick,100);keepAwake(true);updateClock()});
 $('work-pause').addEventListener('click',()=>{if(workout.stage==='rest'||workout.stage==='effort'){workout.pausedStage=workout.stage;workout.stage='pause';clearInterval(workout.timer);workout.timer=null;workout.resumeId=workout.musicId;workout.resumePos=stopMusic();workout.musicId=null;updateClock()}});
 $('work-reset').addEventListener('click',()=>{clearInterval(workout.timer);stopMusic();keepAwake(false);workout={timer:null,stage:'idle',round:1,remaining:settings().rest,count:settings().count,lastTick:0};updateClock()});
 // The browser releases a Wake Lock when the page is hidden: take it again on return during a session.
@@ -145,5 +195,7 @@ function drawFlames(){const c=$('flames'),ctx=c.getContext('2d'),W=c.width,H=c.h
  for(let i=0,n=Math.round(flameLevel*6);i<n;i++){const u=Math.random()*2-1,x=W/2+u*W*.42,tall=1-Math.abs(u)*.55;flames.push({x,y:H+6,vx:(Math.random()-.5)*.5,vy:-(1.8+Math.random()*2.4)*tall*(.6+.5*flameLevel),r:14+Math.random()*16,life:0,max:(30+Math.random()*28)*tall,ph:Math.random()*6})}
  ctx.globalCompositeOperation='source-over';ctx.clearRect(0,0,W,H);ctx.globalCompositeOperation='lighter';
  for(let i=flames.length-1;i>=0;i--){const p=flames[i],k=++p.life/p.max;if(k>=1){flames.splice(i,1);continue}p.x+=p.vx+Math.sin(p.life*.18+p.ph)*.5;p.y+=p.vy;const r=p.r*(1-k*.65);ctx.globalAlpha=Math.min(1,(1-k)*1.4)*.8;ctx.drawImage(flameSprites[k<.28?0:k<.6?1:2],p.x-r,p.y-r,2*r,2*r)}ctx.globalAlpha=1}
+try{$('session-silent').checked=localStorage.getItem(SILENT_KEY)==='true'}catch(_){}
+renderSessionChoices();
 buildGauge();updateClock();drawWave();
 })();

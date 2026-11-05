@@ -1,4 +1,4 @@
-name: Build Riff Forge 2.4 Lab APK
+name: Build Riff Forge Heritage 2.4.2 APK
 on:
   workflow_dispatch:
   push:
@@ -33,9 +33,15 @@ jobs:
           gradle-version: '8.10.2'
       - name: Compile debug APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Publish WebView QA assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: riff-forge-heritage-242-web-assets
+          path: app/src/main/assets/
+          if-no-files-found: error
       - name: Publish APK
         uses: actions/upload-artifact@v4
         with:
-          name: riff-forge-2.4-lab-apk
+          name: riff-forge-heritage-242-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
